@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Mínimo — Reventa</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:16px;background:#f5f5f5;color:#1a1a1a;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:#fff;border-bottom:1px solid #e5e5e5;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.topbar h1{font-size:15px;font-weight:600;flex:1;color:#111}
+.logo{width:28px;height:28px;background:#1F6B3A;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0}
+.upload-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid #ddd;border-radius:7px;background:#fafafa;cursor:pointer;font-size:12px;color:#333;white-space:nowrap}
+.upload-btn:hover{background:#f0f0f0}
+.upload-btn.loaded{border-color:#2E8B57;background:#E8F5E9;color:#1F6B3A;font-weight:600}
+.upload-btn input{display:none}
+.tag-fecha{font-size:11px;color:#888;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:7px;font-size:12px;cursor:pointer;border:1px solid #ddd;background:#fafafa;color:#333;white-space:nowrap}
+.btn:hover{background:#f0f0f0}
+.btn-green{border-color:#2E8B57;background:#2E8B57;color:#fff}
+.btn-green:hover{background:#1F6B3A}
+.btn-green:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+.btn-blue{border-color:#1565C0;background:#1565C0;color:#fff}
+.btn-blue:hover{background:#0D47A1}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e5e5e5;flex-shrink:0;padding:0 16px}
+.tab{padding:9px 16px;font-size:13px;font-weight:500;color:#888;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:#333}
+.tab.active{color:#1F6B3A;border-bottom-color:#1F6B3A}
+.tab-badge{display:inline-block;background:#FFEBEE;color:#C62828;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:4px}
+.stats-row{display:flex;gap:8px;padding:8px 16px;background:#fff;border-bottom:1px solid #e5e5e5;flex-shrink:0}
+.stat-card{flex:1;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:7px 12px;text-align:center}
+.stat-val{font-size:20px;font-weight:600}
+.stat-lbl{font-size:11px;color:#888;margin-top:1px}
+.sv-urgente{color:#C62828}.sv-minimo{color:#B45309}.sv-ok{color:#2E7D32}.sv-sobre{color:#1565C0}.sv-total{color:#333}
+.filters{background:#fff;border-bottom:1px solid #e5e5e5;padding:7px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+.filter-pills{display:flex;gap:4px}
+.pill{padding:3px 10px;border-radius:20px;border:1px solid #ddd;font-size:12px;cursor:pointer;background:#fafafa;color:#666;user-select:none}
+.pill:hover{background:#f0f0f0}
+.pill.p-all{background:#E3F2FD;border-color:#1565C0;color:#1565C0}
+.pill.p-urgente{background:#FFEBEE;border-color:#C62828;color:#C62828}
+.pill.p-minimo{background:#FFF8E1;border-color:#B45309;color:#B45309}
+.pill.p-ok{background:#E8F5E9;border-color:#2E7D32;color:#2E7D32}
+.pill.p-sobre{background:#E3F2FD;border-color:#1565C0;color:#1565C0}
+.esp-sel{padding:4px 10px;border:1px solid #ddd;border-radius:7px;font-size:12px;background:#fafafa;color:#333;outline:none;cursor:pointer}
+.esp-sel:focus{border-color:#2E8B57}
+.search{flex:1;min-width:140px;max-width:260px;padding:5px 9px;border:1px solid #ddd;border-radius:7px;font-size:13px;background:#fafafa;outline:none}
+.search:focus{border-color:#2E8B57;background:#fff}
+.sort-sel{padding:5px 7px;border:1px solid #ddd;border-radius:7px;font-size:12px;background:#fafafa;color:#333;outline:none}
+.table-wrap{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;border-spacing:0}
+thead{position:sticky;top:0;z-index:2;background:#fff}
+th{padding:10px 12px;text-align:left;font-weight:700;font-size:12px;color:#444;border-bottom:2px solid #d0d0d0;white-space:nowrap;background:#f2f2f2;letter-spacing:.3px}
+td{padding:10px 12px;border-bottom:1px solid #e8e8e8;vertical-align:middle;font-size:14px}
+.badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600}
+.b-ok{background:#E8F5E9;color:#2E7D32}
+.b-urgente{background:#FFEBEE;color:#C62828}
+.b-minimo{background:#FFF8E1;color:#B45309}
+.b-atencion{background:#FFF3E0;color:#E65100}
+.b-sobre{background:#E3F2FD;color:#1565C0}
+.b-a{background:#E3F2FD;color:#1565C0}
+.b-b{background:#EDE7F6;color:#512DA8}
+.b-c{background:#F5F5F5;color:#555}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.prod-name{max-width:240px;font-size:14px;line-height:1.4;font-weight:500}
+.lot-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:6px;font-size:11px;margin:1px}
+.lt-ok{background:#E8F5E9;color:#2E7D32}
+.lt-warn{background:#FFF8E1;color:#B45309}
+.lt-danger{background:#FFEBEE;color:#C62828}
+.tend-up{color:#2E7D32;font-size:12px}
+.tend-dn{color:#C62828;font-size:12px}
+.tend-eq{color:#888;font-size:12px}
+.cob-wrap{display:flex;align-items:center;gap:5px}
+.cob-bar{height:5px;border-radius:3px;background:#eee;width:48px;flex-shrink:0;overflow:hidden}
+.cob-fill{height:100%;border-radius:3px}
+.cob-txt{font-size:11px;color:#888}
+.row-detail td{background:#f0faf4!important;padding:9px 14px 12px 36px;font-size:12px}
+.detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px}
+.detail-box{background:#fff;border:1px solid #e5e5e5;border-radius:7px;padding:7px 11px}
+.dlbl{font-size:10px;color:#888;margin-bottom:2px;text-transform:uppercase;letter-spacing:.4px}
+.dval{font-size:14px;font-weight:600;color:#111}
+.lotes-title{font-size:11px;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+.no-data{text-align:center;padding:50px 20px;color:#999}
+.no-data .icon{font-size:36px;margin-bottom:10px}
+.no-data p{font-size:14px;line-height:1.8}
+.no-data .hint{font-size:12px;color:#bbb;margin-top:6px}
+.debug-bar{background:#fffbe6;border-top:1px solid #ffe58f;padding:4px 16px;font-size:11px;color:#7c5500;flex-shrink:0;display:none}
+
+/* Drag & drop */
+.drag-handle{cursor:grab;color:#ccc;font-size:14px;padding:0 4px;user-select:none}
+.drag-handle:hover{color:#888}
+tr.data-row{cursor:default}
+tr.data-row.dragging{opacity:.4;background:#e8f5e9}
+tr.data-row.drag-over td{border-top:2px solid #2E8B57}
+tr.data-row:hover td{background:#f9fffe}
+
+/* Add product bar */
+.add-bar{background:#fff;border-bottom:1px solid #e5e5e5;padding:6px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.add-bar input{flex:1;max-width:340px;padding:5px 9px;border:1px solid #ddd;border-radius:7px;font-size:13px;outline:none}
+.add-bar input:focus{border-color:#2E8B57}
+
+/* Pedidos */
+.pedidos-header{padding:10px 16px;background:#fff;border-bottom:1px solid #e5e5e5;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.pedidos-header h2{font-size:14px;font-weight:600;flex:1}
+table.t-pedidos{width:100%;border-collapse:collapse;font-size:14px}
+table.t-pedidos thead{position:sticky;top:0;z-index:2;background:#fff}
+table.t-pedidos th{padding:9px 10px;font-weight:700;font-size:11px;color:#555;border-bottom:2px solid #e0e0e0;white-space:nowrap;background:#fafafa}
+table.t-pedidos th.num{text-align:right}
+table.t-pedidos td{padding:10px 12px;border-bottom:1px solid #e8e8e8;vertical-align:middle;font-size:14px}
+table.t-pedidos tr:hover td{background:#EEF7FF}
+.inp-palet{width:68px;padding:3px 6px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;outline:none}
+.inp-palet:focus{border-color:#1565C0;background:#EEF7FF}
+.inp-bolsas{width:68px;padding:3px 6px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;outline:none}
+.inp-bolsas:focus{border-color:#2E8B57;background:#F0FAF4}
+.cob-teorica{font-weight:600}
+.cob-t-ok{color:#2E7D32}.cob-t-warn{color:#B45309}.cob-t-danger{color:#C62828}
+.stock-final{font-weight:600;color:#1565C0}
+.section-hdr td{background:#f5f5f5;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;padding:5px 8px}
+.grp-header{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;user-select:none;border-bottom:1px solid #e5e5e5;position:sticky;top:0;z-index:3}
+.grp-header:hover{filter:brightness(.97)}
+.grp-title{font-size:13px;font-weight:700;flex:1}
+.grp-count{font-size:12px;font-weight:600;padding:2px 9px;border-radius:10px}
+.grp-arrow{font-size:12px;color:#888;transition:transform .2s}
+.grp-arrow.collapsed{transform:rotate(-90deg)}
+.grp-body{transition:none}
+.grp-body.collapsed{display:none}
+/* Zebra striping por grupo */
+.row-even td{background:#ffffff}
+.row-odd td{background:#F8FFFE}
+.row-even:hover td,.row-odd:hover td{background:#E1F5E8!important}
+/* Borde izquierdo de color según estado */
+.row-urgente td:first-child{border-left:3px solid #E53935}
+.row-atencion td:first-child{border-left:3px solid #FB8C00}
+.row-ok td:first-child{border-left:3px solid #43A047}
+.row-sobre td:first-child{border-left:3px solid #1E88E5}
+/* Número más grande en stat cards */
+.stat-val{font-size:24px;font-weight:700}
+
+.abc-sel{padding:2px 4px;border-radius:8px;font-size:11px;font-weight:600;border:1px solid transparent;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;text-align:center;width:36px}
+.abc-sel.abc-a{background:#E3F2FD;color:#1565C0;border-color:#90CAF9}
+.abc-sel.abc-b{background:#EDE7F6;color:#512DA8;border-color:#CE93D8}
+.abc-sel.abc-c{background:#F5F5F5;color:#555;border-color:#ddd}
+.abc-sel:hover{filter:brightness(.95)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">📦</div>
+  <h1>Stock Mínimo — Reventa</h1>
+  <span class="tag-fecha" id="tag-fecha"></span>
+  <label class="upload-btn" id="btn-mov">📂 Movimientos<input type="file" id="inp-mov" accept=".xlsx,.xls"></label>
+  <label class="upload-btn" id="btn-stock">🗄️ Stock/Posición<input type="file" id="inp-stock" accept=".xlsx,.xls"></label>
+  <button class="btn btn-green" id="btn-export" disabled onclick="exportarExcel()">⬇️ Exportar Excel</button>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="stock" onclick="switchTab('stock')">📊 Stock mínimo</div>
+  <div class="tab" data-tab="pedidos" onclick="switchTab('pedidos')">🛒 Pedidos<span class="tab-badge" id="badge-pedidos" style="display:none">0</span></div>
+  <div class="tab" data-tab="alertas" onclick="switchTab('alertas')">🚨 Alertas</div>
+  <div class="tab" data-tab="config" onclick="switchTab('config')">⚙️ Configuración</div>
+</div>
+
+<!-- STOCK TAB -->
+<div id="tab-stock" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-val sv-urgente" id="cnt-urgente">—</div><div class="stat-lbl">Pedir urgente</div></div>
+    <div class="stat-card"><div class="stat-val sv-minimo" id="cnt-minimo">—</div><div class="stat-lbl">Atención</div></div>
+    <div class="stat-card"><div class="stat-val sv-ok" id="cnt-ok">—</div><div class="stat-lbl">Stock OK</div></div>
+    <div class="stat-card"><div class="stat-val sv-sobre" id="cnt-sobre">—</div><div class="stat-lbl">Sobre stock</div></div>
+    <div class="stat-card"><div class="stat-val sv-total" id="cnt-total">—</div><div class="stat-lbl">Total productos</div></div>
+  </div>
+  <div class="filters">
+    <div class="filter-pills">
+      <span class="pill p-all" data-f="all">Todos</span>
+      <span class="pill" data-f="urgente">🔴 Urgente</span>
+      <span class="pill" data-f="minimo">🟡 Atención</span>
+      <span class="pill" data-f="ok">🟢 OK</span>
+      <span class="pill" data-f="sobre">🔵 Sobre stock</span>
+    </div>
+    <input class="search" id="search" placeholder="Buscar producto..." type="search">
+    <select class="esp-sel" id="esp-sel-stock" onchange="state.especieFilter=this.value;state.openIdx=null;render()"><option value="all">Todas las especies</option></select>
+    <select class="sort-sel" id="sort-sel">
+      <option value="orden">Ordenar: mi orden</option>
+      <option value="estado">Por estado</option>
+      <option value="cobertura">Cobertura (↑ menor primero)</option>
+      <option value="cobertura_desc">Cobertura (↓ mayor primero)</option>
+      <option value="stock">Stock (↓)</option>
+      <option value="nombre">Nombre A–Z</option>
+      <option value="vto">Vto. próximo</option>
+    </select>
+  </div>
+  <div class="add-bar">
+    <input id="inp-nuevo" placeholder="Nombre del producto a agregar..." type="text" onkeydown="if(event.key==='Enter')agregarProducto()">
+    <button class="btn" onclick="agregarProducto()">＋ Agregar producto</button>
+    <span style="font-size:11px;color:#aaa;margin-left:4px">Arrastrá las filas con ☰ para reordenar</span>
+  </div>
+  <div class="debug-bar" id="debug-bar"></div>
+  <div class="table-wrap">
+    <table id="main-table">
+      <thead><tr>
+        <th style="width:24px"></th>
+        <th style="width:18px"></th>
+        <th>Producto</th><th>ABC</th>
+        <th class="num">Stock</th><th class="num">Stock mín.</th>
+        <th class="num">Cobertura</th>
+        <th class="num">Últ. 30d</th><th class="num">Prom. mens.</th><th class="num">Año ant.</th>
+        <th>Tend.</th><th>Vto. próximo</th><th>Estado</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="no-data" id="no-data">
+      <div class="icon">📦</div>
+      <p>Cargá los dos archivos para ver el análisis completo.</p>
+      <p class="hint">⚠️ El archivo de stock debe ser .xlsx (no .xls)</p>
+    </div>
+  </div>
+</div>
+
+<!-- PEDIDOS TAB -->
+<div id="tab-pedidos" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+  <div class="pedidos-header">
+    <h2>🛒 Pedidos</h2>
+    <span style="font-size:12px;color:#888">Ingresá palets o bolsas para cualquier producto.</span>
+    <select class="esp-sel" id="esp-sel-ped" onchange="state.especieFilterPed=this.value;renderPedidos()"><option value="all">Todas las especies</option></select>
+    <button class="btn btn-blue" onclick="exportarPedido()">⬇️ Exportar pedido</button>
+  </div>
+  <div class="table-wrap">
+    <table class="t-pedidos" id="t-pedidos">
+      <thead><tr>
+        <th>Producto</th><th>ABC</th>
+        <th class="num">Stock actual</th>
+        <th class="num">Prom. mens.</th>
+        <th class="num">Cobertura actual</th>
+        <th class="num" style="width:85px">Bolsas x palet</th>
+        <th class="num" style="width:85px">Palets a pedir</th>
+        <th class="num">Uds. a pedir</th>
+        <th class="num">Stock teórico</th>
+        <th class="num">Cobertura teórica</th>
+        <th>Estado</th>
+        <th style="width:32px"></th>
+      </tr></thead>
+      <tbody id="tbody-pedidos"></tbody>
+    </table>
+    <div class="no-data" id="no-data-ped">
+      <div class="icon">🛒</div>
+      <p>Cargá los archivos primero.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ALERTAS TAB -->
+<div id="tab-alertas" style="display:none;flex-direction:column;flex:1;overflow:auto;padding:20px;gap:20px">
+  <div style="max-width:900px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:20px">
+
+    <!-- Vencimientos -->
+    <div style="background:#fff;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:14px;font-weight:600">⏰ Lotes próximos a vencer</div>
+        <select class="esp-sel" id="esp-sel-vto" onchange="state.especieFilterAl=this.value;renderAlertas()"><option value="all">Todas las especies</option></select>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+          <span style="font-size:12px;color:#888">Mostrar lotes que vencen en los próximos</span>
+          <input type="number" id="inp-dias-vto" value="60" min="1" max="365" style="width:65px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;outline:none" oninput="renderAlertas()">
+          <span style="font-size:12px;color:#888">días</span>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead style="position:sticky;top:0;background:#fff">
+          <tr>
+            <th style="padding:7px 12px;text-align:left;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Producto</th>
+            <th style="padding:7px 12px;text-align:left;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Especie</th>
+            <th style="padding:7px 12px;text-align:center;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Vencimiento</th>
+            <th style="padding:7px 12px;text-align:right;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Cantidad</th>
+            <th style="padding:7px 12px;text-align:center;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Días restantes</th>
+            <th style="padding:7px 12px;text-align:left;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Alerta</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-vto"></tbody>
+      </table>
+      <div id="no-vto" style="text-align:center;padding:30px;color:#999;font-size:13px;display:none">✅ Sin lotes próximos a vencer en ese plazo.</div>
+    </div>
+
+    <!-- Sobre stock -->
+    <div style="background:#fff;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:14px;font-weight:600">📦 Productos con sobre stock</div>
+        <select class="esp-sel" id="esp-sel-sobre" onchange="state.especieFilterAl=this.value;renderAlertas()"><option value="all">Todas las especies</option></select>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+          <span style="font-size:12px;color:#888">Mostrar productos con cobertura mayor a</span>
+          <input type="number" id="inp-cob-sobre" value="90" min="1" max="999" style="width:65px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;outline:none" oninput="renderAlertas()">
+          <span style="font-size:12px;color:#888">días</span>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead style="position:sticky;top:0;background:#fff">
+          <tr>
+            <th style="padding:7px 12px;text-align:left;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Producto</th>
+            <th style="padding:7px 12px;text-align:left;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Especie</th>
+            <th style="padding:7px 12px;text-align:left;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">ABC</th>
+            <th style="padding:7px 12px;text-align:right;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Stock actual</th>
+            <th style="padding:7px 12px;text-align:right;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Prom. mensual</th>
+            <th style="padding:7px 12px;text-align:right;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Cobertura</th>
+            <th style="padding:7px 12px;text-align:right;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Excedente estimado</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-sobre"></tbody>
+      </table>
+      <div id="no-sobre" style="text-align:center;padding:30px;color:#999;font-size:13px;display:none">✅ Ningún producto supera ese umbral de cobertura.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CONFIG TAB -->
+<div id="tab-config" style="display:none;flex-direction:column;flex:1;overflow:auto;padding:20px">
+  <div style="max-width:700px;margin:0 auto;display:flex;flex-direction:column;gap:20px">
+
+    <!-- Lead time por especie -->
+    <div style="background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:16px 20px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Lead time por especie (días)</div>
+      <div style="font-size:12px;color:#888;margin-bottom:14px">Días que tarda en llegar el pedido según el proveedor/especie.</div>
+      <div id="lead-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+        <input id="inp-especie" placeholder="Nueva especie..." style="flex:1;padding:5px 9px;border:1px solid #ddd;border-radius:7px;font-size:13px;outline:none" onkeydown="if(event.key==='Enter')agregarEspecie()">
+        <button class="btn" onclick="agregarEspecie()">＋ Agregar especie</button>
+      </div>
+    </div>
+
+    <!-- Días de seguridad por ABC -->
+    <div style="background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:16px 20px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Días de seguridad por clasificación ABC</div>
+      <div style="font-size:12px;color:#888;margin-bottom:14px">Stock de seguridad adicional al lead time según importancia del producto.</div>
+      <div style="display:flex;gap:12px" id="abc-seg-list"></div>
+    </div>
+
+    <!-- Especie por producto -->
+    <div style="background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:16px 20px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Especie por producto</div>
+      <div style="font-size:12px;color:#888;margin-bottom:14px">Asigná la especie a cada producto para aplicar el lead time correcto.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 8px;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5">Producto</th>
+          <th style="text-align:left;padding:6px 8px;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5;width:200px">Especie</th>
+          <th style="text-align:right;padding:6px 8px;font-size:11px;color:#666;border-bottom:1px solid #e5e5e5;width:80px">Lead time</th>
+        </tr></thead>
+        <tbody id="prod-especie-list"></tbody>
+      </table>
+    </div>
+
+    <div style="text-align:center">
+      <button class="btn btn-green" onclick="aplicarConfig()">✅ Aplicar cambios y recalcular</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Datos iniciales ───────────────────────────────────────────────────────────
+let PRODUCTOS = ["Advance Gato Almohaditas x 8kg","Advance Gatito y Gata Lactante Kitten All Breed x 7.5 kg","Advance Perro Cachorro All Breed x 1.5 kg","Advance Perro Almohaditas x 15kg","Advance Gato Adulto Indoor x 8 kg","Avena Pelada x 25 Kgs","Guardian Perro Adulto x 15 kg","Colza x 20 Kgs","Fandog x 20 kg","Advance Bio Cookies Pollo y Arroz X 150 Gr","Guardian Cachorro x 10 kg","Arroz p/Perro x 20 kg","Nutricare Mordida Grande x 7.5 kg","Guardian Perro Adulto x 20 kg","Advance Perro Adulto Weight Control x 15 kg","Guardian Gato Adulto x 10 kg","Advance Gato Adulto Salmon All Breed x 8 kg","Miau Gato Adulto x 8kg","Don Dog x 20 kg","Alpiste x 25 Kgs","Advance Hipoalergénico Large Breed (Cordero y Arroz) x 15 kg","Advance Gato Adulto All Breed Urinary x 8kg","Advance Hipoalergénico Small Breed (Cordero y Arroz) x 12 kg","Nutricare Mordida Grande x 20 kg","Advance Perro Cachorro All Breed x 12 kg","Ultramix Cachorros x 10 kg","Advance Perro Adulto Large Breed x 20 kg","Mezcla Gallina x 25 Kgs","Sustituto +Lait Plus x 25 Kg","Girasol Confitero x 20 Kg","Advance Perro Adulto Small Breed x 12 kg","Mezcla Semillero x 25 Kgs","Avena Pelada x 20 Kgs","Nutricare Cachorro x 15 kg","Mezcla Canario x 25 Kgs","Ultramix Gato x 10 kg","Vitamina x 25 Kg","Guardian Perro Adulto Raza Pequeña x 15 kg","Nutricare Mordida Pequeña x 7.5 kg","Piedras Sanitarias X 25 Kg","Polenta para perro x 20 Kgs","Nutricare Mordida Pequeña x 20 kg","Ultramix Adulto x 15 kg","Advance Bio Cookies Carne y Arroz X 150 Gr","Advance Bio Cookies Cordero y Arroz X 150 Gr","Arroz p/Perro Saborizado x 25 kg","Girasol Rayado x 30 Kg","Mezcla Jaulon x 25 Kgs","Mezcla Pájaro Chico x 25 Kg","Mijo x 25 Kgs","Sorgo x 25 Kgs"];
+
+const BOLSAS_PALET = {"Advance Gato Almohaditas x 8kg":126,"Advance Gatito y Gata Lactante Kitten All Breed x 7.5 kg":126,"Advance Perro Cachorro All Breed x 1.5 kg":420,"Advance Perro Almohaditas x 15kg":65,"Advance Gato Adulto Indoor x 8 kg":98,"Avena Pelada x 25 Kgs":40,"Guardian Perro Adulto x 15 kg":65,"Colza x 20 Kgs":60,"Fandog x 20 kg":60,"Advance Bio Cookies Pollo y Arroz X 150 Gr":120,"Guardian Cachorro x 10 kg":96,"Arroz p/Perro x 20 kg":40,"Nutricare Mordida Grande x 7.5 kg":140,"Guardian Perro Adulto x 20 kg":60,"Advance Perro Adulto Weight Control x 15 kg":65,"Guardian Gato Adulto x 10 kg":96,"Advance Gato Adulto Salmon All Breed x 8 kg":98,"Miau Gato Adulto x 8kg":98,"Don Dog x 20 kg":55,"Alpiste x 25 Kgs":40,"Advance Hipoalergénico Large Breed (Cordero y Arroz) x 15 kg":65,"Advance Gato Adulto All Breed Urinary x 8kg":98,"Advance Hipoalergénico Small Breed (Cordero y Arroz) x 12 kg":84,"Nutricare Mordida Grande x 20 kg":48,"Advance Perro Cachorro All Breed x 12 kg":84,"Ultramix Cachorros x 10 kg":102,"Advance Perro Adulto Large Breed x 20 kg":50,"Mezcla Gallina x 25 Kgs":40,"Sustituto +Lait Plus x 25 Kg":40,"Girasol Confitero x 20 Kg":1,"Advance Perro Adulto Small Breed x 12 kg":84,"Mezcla Semillero x 25 Kgs":40,"Avena Pelada x 20 Kgs":60,"Nutricare Cachorro x 15 kg":50,"Mezcla Canario x 25 Kgs":40,"Ultramix Gato x 10 kg":102,"Vitamina x 25 Kg":40,"Guardian Perro Adulto Raza Pequeña x 15 kg":65,"Nutricare Mordida Pequeña x 7.5 kg":140,"Piedras Sanitarias X 25 Kg":60,"Polenta para perro x 20 Kgs":60,"Nutricare Mordida Pequeña x 20 kg":48,"Ultramix Adulto x 15 kg":70,"Advance Bio Cookies Carne y Arroz X 150 Gr":120,"Advance Bio Cookies Cordero y Arroz X 150 Gr":120,"Arroz p/Perro Saborizado x 25 kg":40,"Girasol Rayado x 30 Kg":1,"Mezcla Jaulon x 25 Kgs":40,"Mezcla Pájaro Chico x 25 Kg":40,"Mijo x 25 Kgs":40,"Sorgo x 25 Kgs":40};
+
+const ABC_MAP = {"Guardian Gato Adulto x 10 kg":"A","Advance Perro Adulto Large Breed x 20 kg":"A","Mezcla Gallina x 25 Kgs":"A","Advance Perro Adulto Small Breed x 12 kg":"A","Nutricare Mordida Grande x 20 kg":"A","Piedras Sanitarias X 25 Kg":"A","Nutricare Mordida Pequeña x 20 kg":"A","Sustituto +Lait Plus x 25 Kg":"A","Advance Perro Cachorro All Breed x 12 kg":"A","Guardian Perro Adulto x 20 kg":"B","Advance Gato Adulto Salmon All Breed x 8 kg":"B","Advance Hipoalergénico Large Breed (Cordero y Arroz) x 15 kg":"B","Advance Gato Adulto All Breed Urinary x 8kg":"B","Girasol Confitero x 20 Kg":"B","Mezcla Semillero x 25 Kgs":"B","Nutricare Cachorro x 15 kg":"B","Mezcla Canario x 25 Kgs":"B","Ultramix Gato x 10 kg":"B","Guardian Perro Adulto Raza Pequeña x 15 kg":"B","Nutricare Mordida Pequeña x 7.5 kg":"B","Girasol Rayado x 30 Kg":"B","Mezcla Jaulon x 25 Kgs":"B","Mezcla Pájaro Chico x 25 Kg":"B","Mijo x 25 Kgs":"B"};
+const ESPECIE_MAP = {"Advance Gato Almohaditas x 8kg":"TOTAL ALIMENTOS","Advance Gatito y Gata Lactante Kitten All Breed x 7.5 kg":"TOTAL ALIMENTOS","Advance Perro Cachorro All Breed x 1.5 kg":"TOTAL ALIMENTOS","Advance Perro Almohaditas x 15kg":"TOTAL ALIMENTOS","Advance Gato Adulto Indoor x 8 kg":"TOTAL ALIMENTOS","Avena Pelada x 25 Kgs":"SEMILLAS","Guardian Perro Adulto x 15 kg":"TOTAL ALIMENTOS","Colza x 20 Kgs":"SEMILLAS","Fandog x 20 kg":"TOTAL ALIMENTOS","Advance Bio Cookies Pollo y Arroz X 150 Gr":"TOTAL ALIMENTOS","Guardian Cachorro x 10 kg":"TOTAL ALIMENTOS","Arroz p/Perro x 20 kg":"SEMILLAS","Nutricare Mordida Grande x 7.5 kg":"VITALVET","Guardian Perro Adulto x 20 kg":"TOTAL ALIMENTOS","Advance Perro Adulto Weight Control x 15 kg":"TOTAL ALIMENTOS","Guardian Gato Adulto x 10 kg":"TOTAL ALIMENTOS","Advance Gato Adulto Salmon All Breed x 8 kg":"TOTAL ALIMENTOS","Miau Gato Adulto x 8kg":"TOTAL ALIMENTOS","Don Dog x 20 kg":"TOTAL ALIMENTOS","Alpiste x 25 Kgs":"SEMILLAS","Advance Hipoalergénico Large Breed (Cordero y Arroz) x 15 kg":"TOTAL ALIMENTOS","Advance Gato Adulto All Breed Urinary x 8kg":"TOTAL ALIMENTOS","Advance Hipoalergénico Small Breed (Cordero y Arroz) x 12 kg":"TOTAL ALIMENTOS","Nutricare Mordida Grande x 20 kg":"VITALVET","Advance Perro Cachorro All Breed x 12 kg":"TOTAL ALIMENTOS","Ultramix Cachorros x 10 kg":"VITALVET","Advance Perro Adulto Large Breed x 20 kg":"TOTAL ALIMENTOS","Mezcla Gallina x 25 Kgs":"SEMILLAS","Sustituto +Lait Plus x 25 Kg":"PRODUCTOS VETERINARIOS","Girasol Confitero x 20 Kg":"SEMILLAS","Advance Perro Adulto Small Breed x 12 kg":"TOTAL ALIMENTOS","Mezcla Semillero x 25 Kgs":"SEMILLAS","Avena Pelada x 20 Kgs":"SEMILLAS","Nutricare Cachorro x 15 kg":"VITALVET","Mezcla Canario x 25 Kgs":"SEMILLAS","Ultramix Gato x 10 kg":"VITALVET","Vitamina x 25 Kg":"SEMILLAS","Guardian Perro Adulto Raza Pequeña x 15 kg":"TOTAL ALIMENTOS","Nutricare Mordida Pequeña x 7.5 kg":"VITALVET","Piedras Sanitarias X 25 Kg":"SEMILLAS","Polenta para perro x 20 Kgs":"SEMILLAS","Nutricare Mordida Pequeña x 20 kg":"VITALVET","Ultramix Adulto x 15 kg":"VITALVET","Advance Bio Cookies Carne y Arroz X 150 Gr":"TOTAL ALIMENTOS","Advance Bio Cookies Cordero y Arroz X 150 Gr":"TOTAL ALIMENTOS","Arroz p/Perro Saborizado x 25 kg":"SEMILLAS","Girasol Rayado x 30 Kg":"SEMILLAS","Mezcla Jaulon x 25 Kgs":"SEMILLAS","Mezcla Pájaro Chico x 25 Kg":"SEMILLAS","Mijo x 25 Kgs":"SEMILLAS","Sorgo x 25 Kgs":"SEMILLAS"};
+let especieMap = Object.assign({}, ESPECIE_MAP);
+
+// Lead time editable por especie
+let leadTimes = {"TOTAL ALIMENTOS":21,"SEMILLAS":21,"VITALVET":21,"PRODUCTOS VETERINARIOS":21};
+let diasSeg = {A:4,B:3,C:2};
+
+function getLead(prod){ return leadTimes[especieMap[prod]] || 21; }
+
+const DOC_VENTAS="Remito de Venta Planta";
+
+let state={rows:[],filter:'all',search:'',sort:'orden',openIdx:null,currentTab:'stock',especieFilter:'all',especieFilterPed:'all',especieFilterAl:'all'};
+let movData=null,stockData=null,pedidos={};
+let dragSrc=null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function debug(m){const b=document.getElementById('debug-bar');b.style.display='block';b.textContent=m;}
+function toDate(v){
+  if(!v&&v!==0)return null;
+  if(v instanceof Date){if(isNaN(v))return null;const d=new Date(v);d.setHours(0,0,0,0);return d;}
+  if(typeof v==='number'){const d=new Date(Math.round((v-25569)*86400*1000));d.setHours(0,0,0,0);return d;}
+  if(typeof v==='string'){const m=v.match(/(\d{4})-(\d{2})-(\d{2})/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);const m2=v.match(/(\d{2})\/(\d{2})\/(\d{4})/);if(m2)return new Date(+m2[3],+m2[2]-1,+m2[1]);}
+  return null;
+}
+function fmtDate(v){const d=toDate(v);if(!d)return null;return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;}
+function diffDays(v){const d=toDate(v);if(!d)return null;const t=new Date();t.setHours(0,0,0,0);return Math.round((d-t)/86400000);}
+function readXlsx(file,cb){
+  const fr=new FileReader();
+  fr.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'array',cellDates:false,raw:true});const ws=wb.Sheets[wb.SheetNames[0]];cb(null,XLSX.utils.sheet_to_json(ws,{raw:true,defval:''}));}catch(err){cb(err,null);}};
+  fr.onerror=()=>cb(new Error('Error'),null);
+  fr.readAsArrayBuffer(file);
+}
+function findCol(data,candidates){
+  const keys=Object.keys(data[0]||{});
+  for(const c of candidates){const f=keys.find(k=>k.trim().toLowerCase()===c.toLowerCase());if(f)return f;}
+  return null;
+}
+
+// ── Proceso principal ─────────────────────────────────────────────────────────
+function processFiles(){
+  if(!movData||!stockData)return;
+  const CF=findCol(movData,['Fecha','fecha']),CP=findCol(movData,['Producto','producto']),CD=findCol(movData,['Documento nombre','Documento']),CC=findCol(movData,['Cantidad principal','Cantidad']);
+  const CPS=findCol(stockData,['Producto actual','Producto','producto']),CVT=findCol(stockData,['Vto. (Lote)','Vencimiento','Vto']),CCS=findCol(stockData,['Cantidad','cantidad']);
+  if(!CF||!CP||!CD||!CC){debug('❌ Columnas no encontradas en movimientos.');return;}
+  if(!CPS||!CCS){debug('❌ Columnas no encontradas en stock.');return;}
+
+  const ventas=movData.filter(r=>String(r[CD]||'').trim()===DOC_VENTAS&&parseFloat(r[CC]||0)<0);
+  if(!ventas.length){debug('❌ Sin ventas en el reporte.');return;}
+
+  const fechas=ventas.map(r=>toDate(r[CF])).filter(Boolean).sort((a,b)=>b-a);
+  const maxF=fechas[0]||new Date();
+  document.getElementById('tag-fecha').textContent=`Último dato: ${fmtDate(maxF)}`;
+
+  const t30=new Date(maxF-30*864e5),t90=new Date(maxF-90*864e5),tA0=new Date(maxF-395*864e5),tA1=new Date(maxF-365*864e5);
+  const u30={},u90={},a30={};
+  ventas.forEach(r=>{
+    const p=String(r[CP]||'').trim();
+    if(!PRODUCTOS.includes(p)&&!p)return;
+    const c=Math.abs(parseFloat(r[CC]||0)),fd=toDate(r[CF]);if(!fd)return;
+    if(fd>t30)u30[p]=(u30[p]||0)+c;
+    if(fd>t90)u90[p]=(u90[p]||0)+c;
+    if(fd>tA0&&fd<=tA1)a30[p]=(a30[p]||0)+c;
+  });
+
+  const stockMap={},lotesMap={};
+  stockData.forEach(r=>{
+    const p=String(r[CPS]||'').trim();if(!p)return;
+    const c=parseFloat(r[CCS]||0);if(c<=0)return;
+    stockMap[p]=(stockMap[p]||0)+c;
+    const vs=fmtDate(r[CVT]),vd=diffDays(r[CVT]);
+    if(vs){if(!lotesMap[p])lotesMap[p]={};if(!lotesMap[p][vs])lotesMap[p][vs]={vto:vs,cant:0,dias:vd};lotesMap[p][vs].cant+=c;}
+  });
+
+  state.rows=PRODUCTOS.map(prod=>{
+    const stock=Math.round(stockMap[prod]||0);
+    const s30=Math.round((u30[prod]||0)*10)/10,s90=Math.round((u90[prod]||0)*10)/10,sa30=Math.round((a30[prod]||0)*10)/10;
+    const existingRow=state.rows.find(r=>r.prod===prod); const prom=Math.round(s90/3*10)/10,abc=(existingRow&&existingRow.abc)||ABC_MAP[prod]||'C',salDia=prom>0?prom/30:0; const lead=getLead(prod);
+    const stockMin=Math.round(salDia*(lead+diasSeg[abc]));
+    const cob=salDia>0?Math.round(stock/salDia):null;
+    const umbral=lead+diasSeg[abc]; let estado='STOCK OK';
+    if(stock===0||(cob!==null&&cob<umbral))estado='PEDIR URGENTE';
+    else if(cob!==null&&cob<umbral*1.5)estado='ATENCIÓN';
+    else if(cob!==null&&cob>umbral*4)estado='SOBRE STOCK';
+    const tend=prom>0?Math.round((s30-prom)/prom*100):null;
+    const lotes=lotesMap[prod]?Object.values(lotesMap[prod]).sort((a,b)=>a.dias-b.dias):[];
+    return {prod,stock,abc,s30,prom,sa30,stockMin,cob,estado,tend,lotes};
+  });
+
+  // Acumular ventas mensuales por producto para el gráfico
+  const ventasMes={};
+  ventas.forEach(r=>{
+    const p=String(r[CP]||'').trim();
+    if(!PRODUCTOS.includes(p))return;
+    const c=Math.abs(parseFloat(r[CC]||0));
+    const fd=toDate(r[CF]);if(!fd)return;
+    const key=`${fd.getFullYear()}-${String(fd.getMonth()+1).padStart(2,'0')}`;
+    if(!ventasMes[p])ventasMes[p]={};
+    ventasMes[p][key]=(ventasMes[p][key]||0)+c;
+  });
+  window._ventasMes=ventasMes;
+  PRODUCTOS.forEach(p=>{if(!pedidos[p])pedidos[p]={palets:'',bolsas:BOLSAS_PALET[p]||0};});
+  // Poblar dropdowns de especie
+  const especies=[...new Set(PRODUCTOS.map(p=>especieMap[p]||'').filter(Boolean))].sort();
+  ['esp-sel-stock','esp-sel-ped','esp-sel-vto','esp-sel-sobre'].forEach(id=>{
+    const sel=document.getElementById(id); if(!sel)return;
+    const cur=sel.value;
+    sel.innerHTML='<option value="all">Todas las especies</option>'+especies.map(e=>`<option value="${e}" ${cur===e?'selected':''}>${e}</option>`).join('');
+  });
+  updateStats();render();renderPedidos();
+  document.getElementById('btn-export').disabled=false;
+  document.getElementById('debug-bar').style.display='none';
+}
+
+function updateStats(){
+  const r=state.rows;
+  const nu=r.filter(x=>x.estado==='PEDIR URGENTE').length,nm=r.filter(x=>x.estado==='ATENCIÓN').length;
+  document.getElementById('cnt-urgente').textContent=nu;
+  document.getElementById('cnt-minimo').textContent=nm;
+  document.getElementById('cnt-ok').textContent=r.filter(x=>x.estado==='STOCK OK').length;
+  document.getElementById('cnt-sobre').textContent=r.filter(x=>x.estado==='SOBRE STOCK').length;
+  document.getElementById('cnt-total').textContent=r.length;
+  const b=document.getElementById('badge-pedidos'),tot=nu+nm;
+  b.textContent=tot;b.style.display=tot>0?'inline-block':'none';
+}
+
+function getFiltered(){
+  let rows=state.rows;
+  if(state.filter==='urgente')rows=rows.filter(r=>r.estado==='PEDIR URGENTE');
+  else if(state.filter==='minimo')rows=rows.filter(r=>r.estado==='ATENCIÓN');
+  else if(state.filter==='ok')rows=rows.filter(r=>r.estado==='STOCK OK');
+  else if(state.filter==='sobre')rows=rows.filter(r=>r.estado==='SOBRE STOCK');
+  if(state.search){const q=state.search.toLowerCase();rows=rows.filter(r=>r.prod.toLowerCase().includes(q));}
+  if(state.especieFilter&&state.especieFilter!=='all')rows=rows.filter(r=>(especieMap[r.prod]||'')=== state.especieFilter);
+  if(state.sort==='orden')return rows;
+  const fns={estado:r=>({'PEDIR URGENTE':0,'ATENCIÓN':1,'STOCK OK':2,'SOBRE STOCK':3}[r.estado]||3),cobertura:r=>r.cob===null?999999:r.cob,cobertura_desc:r=>r.cob===null?-1:-r.cob,stock:r=>-r.stock,nombre:r=>r.prod,vto:r=>r.lotes.length?r.lotes[0].dias:9999};
+  return [...rows].sort((a,b)=>{const fa=fns[state.sort](a),fb=fns[state.sort](b);return fa<fb?-1:fa>fb?1:0;});
+}
+
+// ── Render tabla stock ────────────────────────────────────────────────────────
+// ── Grupos colapsables ───────────────────────────────────────────────────────
+const grpCollapsed={'PEDIR URGENTE':false,'ATENCIÓN':false,'STOCK OK':false,'SOBRE STOCK':false};
+function toggleGrp(estado){grpCollapsed[estado]=!grpCollapsed[estado];render();}
+
+function render(){
+  const rows=getFiltered();
+  const tbody=document.getElementById('tbody');
+  document.getElementById('no-data').style.display=state.rows.length===0?'block':'none';
+
+  const orden=['PEDIR URGENTE','ATENCIÓN','STOCK OK','SOBRE STOCK'];
+  const grupos={};orden.forEach(e=>grupos[e]=[]);
+  rows.forEach(r=>{(grupos[r.estado]||grupos['STOCK OK']).push(r);});
+
+  const grpBg={'PEDIR URGENTE':'#FFEBEE','ATENCIÓN':'#FFF8E1','STOCK OK':'#E8F5E9','SOBRE STOCK':'#E3F2FD'};
+  const grpTc={'PEDIR URGENTE':'#C62828','ATENCIÓN':'#B45309','STOCK OK':'#2E7D32','SOBRE STOCK':'#1565C0'};
+  const grpIcon={'PEDIR URGENTE':'🔴','ATENCIÓN':'🟡','STOCK OK':'🟢','SOBRE STOCK':'🔵'};
+  const grpRC={'PEDIR URGENTE':'row-urgente','ATENCIÓN':'row-atencion','STOCK OK':'row-ok','SOBRE STOCK':'row-sobre'};
+
+  let html='';
+  orden.forEach(estado=>{
+    const grpRows=grupos[estado];
+    if(!grpRows.length)return;
+    const collapsed=grpCollapsed[estado];
+    const bg=grpBg[estado],tc=grpTc[estado];
+    html+=`<tr><td colspan="14" style="padding:0;border-bottom:2px solid ${tc}33">
+      <div class="grp-header" style="background:${bg}" onclick="toggleGrp('${estado}')">
+        <span style="font-size:13px;color:${tc};transition:transform .2s;display:inline-block;transform:${collapsed?'rotate(-90deg)':'rotate(0)'}">▾</span>
+        <span style="font-size:13px;font-weight:700;color:${tc};flex:1">${grpIcon[estado]} ${estado}</span>
+        <span style="font-size:12px;font-weight:600;padding:2px 10px;border-radius:10px;background:${tc}22;color:${tc}">${grpRows.length} producto${grpRows.length!==1?'s':''}</span>
+      </div>
+    </td></tr>`;
+    if(collapsed)return;
+    grpRows.forEach((r,gi)=>{
+      const stB=r.estado==='PEDIR URGENTE'?'<span class="badge b-urgente">Pedir urgente</span>':r.estado==='ATENCIÓN'?'<span class="badge b-atencion">Atención</span>':r.estado==='SOBRE STOCK'?'<span class="badge b-sobre">Sobre stock</span>':'<span class="badge b-ok">Stock OK</span>';
+      const abcB=`<select class="abc-sel abc-${r.abc.toLowerCase()}" onchange="changeAbc(-1,this.value,'${r.prod.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}');" onclick="event.stopPropagation()"><option value="A" ${r.abc==='A'?'selected':''}>A</option><option value="B" ${r.abc==='B'?'selected':''}>B</option><option value="C" ${r.abc==='C'?'selected':''}>C</option></select>`;
+      const cobPct=r.cob!==null?Math.min(100,Math.round(r.cob/90*100)):0;
+      const cobCol=r.cob===null?'#bbb':r.cob<21?'#C62828':r.cob<45?'#B45309':'#2E7D32';
+      const cobH=r.cob!==null?`<div class="cob-wrap"><div class="cob-bar"><div class="cob-fill" style="width:${cobPct}%;background:${cobCol}"></div></div><span class="cob-txt">${r.cob}d</span></div>`:`<span class="cob-txt">—</span>`;
+      let tendH='<span class="tend-eq">—</span>';
+      if(r.tend!==null)tendH=r.tend>5?`<span class="tend-up">▲ ${r.tend}%</span>`:r.tend<-5?`<span class="tend-dn">▼ ${Math.abs(r.tend)}%</span>`:`<span class="tend-eq">→ ${r.tend}%</span>`;
+      let vtoH='—';
+      if(r.lotes.length){const l=r.lotes[0];const cls=l.dias<0?'lt-danger':l.dias<60?'lt-warn':'lt-ok';vtoH=`<span class="lot-tag ${cls}">${l.vto} · <strong>${Math.round(l.cant)} u.</strong> · ${l.dias<0?'VENCIDO':'en '+l.dias+'d'}</span>`;}
+      const i=rows.indexOf(r);
+      const isOpen=state.openIdx===i;
+      const zebraClass=gi%2===0?'row-even':'row-odd';
+      const stateClass=grpRC[r.estado]||'';
+      let detailRow='';
+      if(isOpen){
+        const chartId=`chart-${i}-${Date.now()}`;
+        const lotesH=r.lotes.length===0?'<em style="color:#999">Sin lotes</em>':r.lotes.map(l=>{const cls=l.dias<0?'lt-danger':l.dias<60?'lt-warn':'lt-ok';return `<span class="lot-tag ${cls}" style="font-size:12px;padding:3px 8px">${l.vto} · <strong>${Math.round(l.cant)} u.</strong> · ${l.dias<0?'VENCIDO hace '+Math.abs(l.dias)+'d':l.dias+'d restantes'}</span>`;}).join('');
+        detailRow=`<tr class="row-detail"><td colspan="14"><div class="detail-grid"><div class="detail-box"><div class="dlbl">Stock actual</div><div class="dval">${r.stock} u.</div></div><div class="detail-box"><div class="dlbl">Stock mínimo</div><div class="dval">${r.stockMin} u.</div></div><div class="detail-box"><div class="dlbl">Cobertura</div><div class="dval">${r.cob!==null?r.cob+'d':'—'}</div></div><div class="detail-box"><div class="dlbl">Salida últ. 30d</div><div class="dval">${r.s30}</div></div><div class="detail-box"><div class="dlbl">Prom. mensual 90d</div><div class="dval">${r.prom}</div></div><div class="detail-box"><div class="dlbl">Mismo mes año ant.</div><div class="dval">${r.sa30}</div></div></div>
+        <div class="lotes-title" style="margin-top:12px">Ventas mensuales — año actual vs año anterior</div>
+        <div style="margin-top:6px;background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:12px"><canvas id="${chartId}" height="90"></canvas></div>
+        <div class="lotes-title" style="margin-top:9px">Lotes / vencimientos</div>
+        <div style="margin-top:3px">${lotesH}</div></td></tr>\`;
+        setTimeout(()=>renderChart(chartId,'${r.prod.replace(/'/g,"\'")}'),50);
+      }
+      const prod_esc=r.prod.replace(/\\/g,'\\\\').replace(/'/g,"\'");
+      html+=`<tr class="data-row ${zebraClass} ${stateClass}" draggable="true" data-prod="${prod_esc}" ondragstart="dragStart(event,'${prod_esc}')" ondragover="dragOver(event)" ondrop="dragDrop(event,'${prod_esc}')" ondragend="dragEnd(event)">
+        <td class="drag-handle" title="Arrastrar para reordenar">☰</td>
+        <td style="text-align:center;color:#aaa;font-size:11px;cursor:pointer" onclick="toggleDetail(${i})">${isOpen?'▾':'▸'}</td>
+        <td class="prod-name" onclick="toggleDetail(${i})" style="cursor:pointer">${r.prod}</td>
+        <td onclick="toggleDetail(${i})">${abcB}</td>
+        <td class="num" style="font-weight:700;font-size:15px" onclick="toggleDetail(${i})">${r.stock}</td>
+        <td class="num" style="color:#999" onclick="toggleDetail(${i})">${r.stockMin}</td>
+        <td onclick="toggleDetail(${i})">${cobH}</td>
+        <td class="num" onclick="toggleDetail(${i})">${r.s30}</td>
+        <td class="num" onclick="toggleDetail(${i})">${r.prom}</td>
+        <td class="num" onclick="toggleDetail(${i})">${r.sa30}</td>
+        <td onclick="toggleDetail(${i})">${tendH}</td>
+        <td onclick="toggleDetail(${i})">${vtoH}</td>
+        <td onclick="toggleDetail(${i})">${stB}</td>
+        <td style="text-align:center"><button onclick="borrarProducto('${prod_esc}')" style="background:none;border:none;cursor:pointer;color:#ddd;font-size:15px;padding:2px 6px;border-radius:4px" title="Eliminar producto" onmouseover="this.style.color='#C62828'" onmouseout="this.style.color='#ddd'">✕</button></td>
+      </tr>${detailRow}`;
+    });
+  });
+  tbody.innerHTML=html;
+}
+}
+
+// ── Gráfico de ventas ──────────────────────────────────────────────────────────
+const _charts={};
+function renderChart(id, prod){
+  const ctx=document.getElementById(id);
+  if(!ctx)return;
+  if(_charts[id]){_charts[id].destroy();delete _charts[id];}
+  const ventasMes=window._ventasMes||{};
+  const data=ventasMes[prod]||{};
+
+  // Generar últimos 12 meses para año actual y anterior
+  const hoy=new Date();
+  const meses=[];
+  const labels=[];
+  for(let i=11;i>=0;i--){
+    const d=new Date(hoy.getFullYear(),hoy.getMonth()-i,1);
+    meses.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+    labels.push(['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][d.getMonth()]);
+  }
+  const actual=meses.map(m=>Math.round((data[m]||0)*10)/10);
+  const anterior=meses.map(m=>{
+    const [y,mo]=m.split('-');
+    const mAnt=`${parseInt(y)-1}-${mo}`;
+    return Math.round((data[mAnt]||0)*10)/10;
+  });
+
+  _charts[id]=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {
+          label:'Año anterior',
+          data:anterior,
+          borderColor:'#CBD5E1',
+          backgroundColor:'rgba(203,213,225,0.1)',
+          borderWidth:2,
+          borderDash:[5,4],
+          pointRadius:3,
+          pointBackgroundColor:'#CBD5E1',
+          tension:0.4,
+          fill:false
+        },
+        {
+          label:'Año actual',
+          data:actual,
+          borderColor:'#1F6B3A',
+          backgroundColor:'rgba(46,139,87,0.08)',
+          borderWidth:2.5,
+          pointRadius:4,
+          pointBackgroundColor:'#1F6B3A',
+          pointHoverRadius:6,
+          tension:0.4,
+          fill:true
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'top',labels:{font:{size:11},boxWidth:20,usePointStyle:true}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y} u.`}}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:11}}},
+        y:{beginAtZero:true,ticks:{font:{size:11}},grid:{color:'#f5f5f5'}}
+      }
+    }
+  });
+}
+
+function borrarProducto(prod){
+  if(!confirm(`¿Eliminar "${prod}" de la lista?`))return;
+  const idx=PRODUCTOS.indexOf(prod);
+  if(idx>-1)PRODUCTOS.splice(idx,1);
+  state.rows=state.rows.filter(r=>r.prod!==prod);
+  delete pedidos[prod];
+  state.openIdx=null;
+  updateStats();render();renderPedidos();
+}
+
+function toggleDetail(i){state.openIdx=state.openIdx===i?null:i;render();}
+
+// ── Drag & drop ───────────────────────────────────────────────────────────────
+function dragStart(e,prod){
+  dragSrc=prod;
+  e.dataTransfer.effectAllowed='move';
+  e.currentTarget.classList.add('dragging');
+}
+function dragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';e.currentTarget.classList.add('drag-over');}
+function dragEnd(e){document.querySelectorAll('.drag-over,.dragging').forEach(el=>el.classList.remove('drag-over','dragging'));}
+function dragDrop(e,targetProd){
+  e.preventDefault();
+  dragEnd(e);
+  if(dragSrc===targetProd)return;
+  const from=PRODUCTOS.indexOf(dragSrc),to=PRODUCTOS.indexOf(targetProd);
+  if(from<0||to<0)return;
+  PRODUCTOS.splice(from,1);
+  PRODUCTOS.splice(to,0,dragSrc);
+  // Reordenar state.rows igual
+  const rowMap={};state.rows.forEach(r=>rowMap[r.prod]=r);
+  state.rows=PRODUCTOS.map(p=>rowMap[p]).filter(Boolean);
+  state.openIdx=null;
+  render();
+}
+
+// ── Agregar producto ──────────────────────────────────────────────────────────
+// ── Cambiar ABC ───────────────────────────────────────────────────────────────
+function changeAbc(idx, val, prodOverride){
+  const prod = prodOverride || (getFiltered()[idx] && getFiltered()[idx].prod);
+  if(!prod) return;
+  // Actualizar en state.rows
+  const row = state.rows.find(r=>r.prod===prod);
+  if(row){
+    row.abc = val;
+    // Recalcular stock mínimo con nuevo ABC
+    const salDia = row.prom>0 ? row.prom/30 : 0;
+    const lead=getLead(row.prod); row.stockMin = Math.round(salDia*(lead+diasSeg[val]));
+    const cob = salDia>0 ? Math.round(row.stock/salDia) : null;
+    const umbral=lead+diasSeg[val];
+    if(row.stock===0||(cob!==null&&cob<umbral)) row.estado='PEDIR URGENTE';
+    else if(cob!==null&&cob<umbral*1.5) row.estado='ATENCIÓN';
+    else if(cob!==null&&cob>umbral*4) row.estado='SOBRE STOCK';
+    else row.estado='STOCK OK';
+  }
+  updateStats(); render(); renderPedidos();
+}
+
+function agregarProducto(){
+  const inp=document.getElementById("inp-nuevo");
+  const nombre=inp.value.trim();
+  if(!nombre)return;
+  if(PRODUCTOS.includes(nombre)){alert("Ese producto ya esta en la lista.");inp.value="";return;}
+  PRODUCTOS.push(nombre);
+  if(!pedidos[nombre])pedidos[nombre]={palets:"",bolsas:BOLSAS_PALET[nombre]||0};
+  inp.value="";
+  if(movData&&stockData){processFiles();}else{state.rows.push({prod:nombre,stock:0,abc:"C",s30:0,prom:0,sa30:0,stockMin:0,cob:null,estado:"STOCK OK",tend:null,lotes:[]});updateStats();render();renderPedidos();}
+}
+
+// ── Pedidos ───────────────────────────────────────────────────────────────────
+function renderPedidos(){
+  const tbody=document.getElementById('tbody-pedidos');
+  const nd=document.getElementById('no-data-ped');
+  if(!state.rows.length){tbody.innerHTML='';nd.style.display='block';return;}
+  const espFiltPed=state.especieFilterPed||'all';
+  const rowsFiltPed=espFiltPed==='all'?state.rows:state.rows.filter(r=>(especieMap[r.prod]||'')===espFiltPed);
+  nd.style.display='none';
+
+  const urgentes=rowsFiltPed.filter(r=>r.estado==='PEDIR URGENTE');
+  const minimos=rowsFiltPed.filter(r=>r.estado==='ATENCIÓN');
+  const ok=rowsFiltPed.filter(r=>r.estado==='STOCK OK');
+  const sobre=rowsFiltPed.filter(r=>r.estado==='SOBRE STOCK');
+
+  let html='';
+  const renderSection=(rows,titulo,color)=>{
+    if(!rows.length)return;
+    html+=`<tr class="section-hdr"><td colspan="11" style="color:${color}">${titulo} (${rows.length})</td></tr>`;
+    rows.forEach(r=>{
+      const ped=pedidos[r.prod]||{palets:'',bolsas:BOLSAS_PALET[r.prod]||0};
+      const bolsas=parseFloat(ped.bolsas)||0,palets=parseFloat(ped.palets)||0;
+      const u.=Math.round(palets*bolsas),stockFinal=r.stock+u.;
+      const salDia=r.prom>0?r.prom/30:0;
+      const cobT=salDia>0?Math.round(stockFinal/salDia):null;
+      const cobClass=cobT===null?'':cobT<21?'cob-t-danger':cobT<45?'cob-t-warn':'cob-t-ok';
+      const abcB=`<select class="abc-sel abc-${r.abc.toLowerCase()}" onchange="changeAbc(-1,this.value,'${r.prod.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" onclick="event.stopPropagation()"><option value="A" ${r.abc==='A'?'selected':''}>A</option><option value="B" ${r.abc==='B'?'selected':''}>B</option><option value="C" ${r.abc==='C'?'selected':''}>C</option></select>`;
+      const stB=r.estado==='PEDIR URGENTE'?'<span class="badge b-urgente">Urgente</span>':r.estado==='ATENCIÓN'?'<span class="badge b-atencion">Atención</span>':r.estado==='SOBRE STOCK'?'<span class="badge b-sobre">Sobre stock</span>':'<span class="badge b-ok">OK</span>';
+      const pe=r.prod.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html+=`<tr>
+        <td class="prod-name">${r.prod}</td><td>${abcB}</td>
+        <td class="num" style="font-weight:600">${r.stock}</td>
+        <td class="num">${r.prom}</td>
+        <td class="num">${r.cob!==null?r.cob+'d':'—'}</td>
+        <td class="num"><input class="inp-bolsas" type="number" min="0" step="1" value="${bolsas||''}" placeholder="u." onchange="updPed('${pe}','bolsas',this.value)"></td>
+        <td class="num"><input class="inp-palet" type="number" min="0" step="0.5" value="${palets||''}" placeholder="0" onchange="updPed('${pe}','palets',this.value)"></td>
+        <td class="num">${u.>0?`<strong>${u.}</strong>`:'—'}</td>
+        <td class="num stock-final">${u.>0?stockFinal:'—'}</td>
+        <td class="num"><span class="cob-teorica ${cobClass}">${cobT!==null&&u.>0?cobT+'d':'—'}</span></td>
+        <td>${stB}</td>
+      </tr>`;
+    });
+  };
+
+  renderSection(urgentes,'🔴 Pedir urgente','#C62828');
+  renderSection(minimos,'🟡 Atención','#B45309');
+  renderSection(ok,'🟢 Stock OK','#2E7D32');
+  renderSection(sobre,'🔵 Sobre stock','#1565C0');
+  tbody.innerHTML=html;
+}
+
+function updPed(prod,campo,val){
+  if(!pedidos[prod])pedidos[prod]={palets:'',bolsas:BOLSAS_PALET[prod]||0};
+  pedidos[prod][campo]=parseFloat(val)||0;
+  renderPedidos();
+}
+
+function exportarPedido(){
+  const wb=XLSX.utils.book_new();
+  const data=[['Producto','ABC','Stock actual','Prom. mensual','Cobertura actual','Bolsas x palet','Palets a pedir','Uds. a pedir','Stock teórico','Cobertura teórica (días)','Estado']];
+  state.rows.forEach(r=>{
+    const ped=pedidos[r.prod]||{palets:0,bolsas:BOLSAS_PALET[r.prod]||0};
+    const bolsas=parseFloat(ped.bolsas)||0,palets=parseFloat(ped.palets)||0;
+    const u.=Math.round(palets*bolsas),stockFinal=r.stock+u.;
+    const salDia=r.prom>0?r.prom/30:0,cobT=salDia>0?Math.round(stockFinal/salDia):null;
+    data.push([r.prod,r.abc,r.stock,r.prom,r.cob??'',bolsas,palets,u.,stockFinal,cobT??'',r.estado]);
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(data),'Pedido');
+  XLSX.writeFile(wb,`Pedido_Reventa_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function exportarExcel(){
+  if(!state.rows.length)return;
+  const wb=XLSX.utils.book_new();
+  const d1=[['Producto','ABC','Stock actual','Stock mínimo','Cobertura (días)','Salida últ. 30d','Prom. mensual 90d','Mismo mes año ant.','Tendencia %','Estado']];
+  state.rows.forEach(r=>d1.push([r.prod,r.abc,r.stock,r.stockMin,r.cob??'',r.s30,r.prom,r.sa30,r.tend??'',r.estado]));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(d1),'Stock Mínimo');
+  const d3=[['Producto','Vencimiento','Días al vto','Cantidad','Alerta']];
+  state.rows.forEach(r=>r.lotes.forEach(l=>{if(l.dias<90)d3.push([r.prod,l.vto,l.dias,Math.round(l.cant),l.dias<0?'VENCIDO':l.dias<30?'URGENTE':'PRÓXIMO']);}));
+  if(d3.length>1)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(d3),'Lotes por Vencer');
+  XLSX.writeFile(wb,`StockReventa_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ── Tabs & filtros ────────────────────────────────────────────────────────────
+function switchTab(tab){
+  state.currentTab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  document.getElementById('tab-stock').style.display=tab==='stock'?'flex':'none';
+  document.getElementById('tab-pedidos').style.display=tab==='pedidos'?'flex':'none';
+  document.getElementById('tab-alertas').style.display=tab==='alertas'?'flex':'none';
+  document.getElementById('tab-config').style.display=tab==='config'?'flex':'none';
+  if(tab==='pedidos')renderPedidos();
+  if(tab==='alertas')renderAlertas();
+  if(tab==='config')renderConfig();
+}
+
+function renderAlertas(){
+  // ── Vencimientos ─────────────────────────────────────────────────────────
+  const diasVto = parseInt(document.getElementById('inp-dias-vto').value)||60;
+  const tbodyVto = document.getElementById('tbody-vto');
+  const noVto = document.getElementById('no-vto');
+
+  const espFiltAl=state.especieFilterAl||'all';
+  const rowsAl=espFiltAl==='all'?state.rows:state.rows.filter(r=>(especieMap[r.prod]||'')===espFiltAl);
+  const loteRows = [];
+  rowsAl.forEach(r=>{
+    r.lotes.forEach(l=>{
+      if(l.dias <= diasVto){
+        loteRows.push({prod:r.prod, especie:especieMap[r.prod]||'—', vto:l.vto, cant:Math.round(l.cant), dias:l.dias});
+      }
+    });
+  });
+  loteRows.sort((a,b)=>a.dias-b.dias);
+
+  if(!loteRows.length){
+    tbodyVto.innerHTML=''; noVto.style.display='block';
+  } else {
+    noVto.style.display='none';
+    tbodyVto.innerHTML = loteRows.map((l,i)=>{
+      const bg = i%2===0?'#F7FBF8':'#fff';
+      const cls = l.dias<0?'lt-danger':l.dias<30?'lt-danger':l.dias<60?'lt-warn':'lt-ok';
+      const alerta = l.dias<0?'🔴 VENCIDO':l.dias<30?'🔴 Crítico':l.dias<60?'🟡 Próximo':'🟢 Vigilar';
+      const diasTxt = l.dias<0?`Vencido hace ${Math.abs(l.dias)}d`:`${l.dias}d restantes`;
+      return `<tr style="background:${bg}">
+        <td style="padding:6px 12px;font-size:12px">${l.prod}</td>
+        <td style="padding:6px 12px;font-size:11px;color:#888">${l.especie}</td>
+        <td style="padding:6px 12px;text-align:center"><span class="lot-tag ${cls}">${l.vto}</span></td>
+        <td style="padding:6px 12px;text-align:right;font-weight:600">${l.cant}</td>
+        <td style="padding:6px 12px;text-align:center;font-size:12px;color:${l.dias<0?'#C62828':l.dias<30?'#C62828':l.dias<60?'#B45309':'#888'}">${diasTxt}</td>
+        <td style="padding:6px 12px;font-size:12px">${alerta}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Sobre stock ───────────────────────────────────────────────────────────
+  const cobUmbral = parseInt(document.getElementById('inp-cob-sobre').value)||90;
+  const tbodySobre = document.getElementById('tbody-sobre');
+  const noSobre = document.getElementById('no-sobre');
+
+  const sobreRows = rowsAl
+    .filter(r=>r.cob!==null && r.cob>cobUmbral)
+    .sort((a,b)=>b.cob-a.cob);
+
+  if(!sobreRows.length){
+    tbodySobre.innerHTML=''; noSobre.style.display='block';
+  } else {
+    noSobre.style.display='none';
+    tbodySobre.innerHTML = sobreRows.map((r,i)=>{
+      const bg = i%2===0?'#F7FBF8':'#fff';
+      const abcB=`<span class="badge b-${r.abc.toLowerCase()}">${r.abc}</span>`;
+      const especie = especieMap[r.prod]||'—';
+      // Excedente = stock - (stock necesario para cobUmbral días)
+      const salDia = r.prom>0?r.prom/30:0;
+      const stockNecesario = Math.round(salDia*cobUmbral);
+      const excedente = Math.max(0, r.stock - stockNecesario);
+      return `<tr style="background:${bg}">
+        <td style="padding:6px 12px;font-size:12px">${r.prod}</td>
+        <td style="padding:6px 12px;font-size:11px;color:#888">${especie}</td>
+        <td style="padding:6px 12px">${abcB}</td>
+        <td style="padding:6px 12px;text-align:right;font-weight:600">${r.stock}</td>
+        <td style="padding:6px 12px;text-align:right;color:#888">${r.prom}</td>
+        <td style="padding:6px 12px;text-align:right;font-weight:600;color:#1565C0">${r.cob}d</td>
+        <td style="padding:6px 12px;text-align:right;font-weight:600;color:#E65100">${excedente>0?excedente+' u.':'—'}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function renderConfig(){
+  // Lead times por especie
+  const leadList=document.getElementById('lead-list');
+  leadList.innerHTML=Object.entries(leadTimes).map(([esp,dias])=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f5f5f5">
+      <span style="flex:1;font-size:13px">${esp}</span>
+      <input type="number" min="1" max="365" value="${dias}" style="width:70px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;outline:none" onchange="leadTimes['${esp}']=parseInt(this.value)||21">
+      <span style="font-size:12px;color:#888">días</span>
+      <button onclick="eliminarEspecie('${esp}')" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:16px;padding:0 4px" title="Eliminar">✕</button>
+    </div>
+  `).join('');
+
+  // Días de seguridad ABC
+  const abcList=document.getElementById('abc-seg-list');
+  abcList.innerHTML=['A','B','C'].map(abc=>`
+    <div style="flex:1;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:12px;text-align:center">
+      <div style="margin-bottom:6px"><span class="badge b-${abc.toLowerCase()}" style="font-size:13px">${abc}</span></div>
+      <input type="number" min="0" max="30" value="${diasSeg[abc]}" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:6px;font-size:16px;text-align:center;font-weight:600;outline:none" onchange="diasSeg['${abc}']=parseInt(this.value)||0">
+      <div style="font-size:11px;color:#888;margin-top:4px">días seguridad</div>
+    </div>
+  `).join('');
+
+  // Especie por producto
+  const especies=Object.keys(leadTimes);
+  const tbody=document.getElementById('prod-especie-list');
+  tbody.innerHTML=PRODUCTOS.map((prod,i)=>{
+    const esp=especieMap[prod]||'';
+    const lead=leadTimes[esp]||'—';
+    return `<tr style="background:${i%2===0?'#fafafa':'#fff'}">
+      <td style="padding:5px 8px;font-size:12px">${prod}</td>
+      <td style="padding:5px 8px">
+        <select style="width:100%;padding:3px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;outline:none" onchange="especieMap['${prod.replace(/'/g,"\\'")}']= this.value;renderConfig()">
+          <option value="">— Sin asignar —</option>
+          ${especies.map(e=>`<option value="${e}" ${esp===e?'selected':''}>${e}</option>`).join('')}
+        </select>
+      </td>
+      <td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:600;color:#1565C0">${lead} días</td>
+    </tr>`;
+  }).join('');
+}
+
+function agregarEspecie(){
+  const inp=document.getElementById('inp-especie');
+  const nombre=inp.value.trim().toUpperCase();
+  if(!nombre)return;
+  if(leadTimes[nombre]!==undefined){alert('Esa especie ya existe.');inp.value='';return;}
+  leadTimes[nombre]=21;
+  inp.value='';
+  renderConfig();
+}
+
+function eliminarEspecie(esp){
+  if(!confirm(`¿Eliminar la especie "${esp}"?`))return;
+  delete leadTimes[esp];
+  Object.keys(especieMap).forEach(p=>{if(especieMap[p]===esp)especieMap[p]='';});
+  renderConfig();
+}
+
+function aplicarConfig(){
+  // Recalcular todos los estados con nuevos lead times y días de seguridad
+  state.rows.forEach(row=>{
+    const salDia=row.prom>0?row.prom/30:0;
+    const lead=getLead(row.prod);
+    row.stockMin=Math.round(salDia*(lead+diasSeg[row.abc]));
+    const cob=salDia>0?Math.round(row.stock/salDia):null;
+    row.cob=cob;
+    const umbral=lead+diasSeg[row.abc];
+    if(row.stock===0||(cob!==null&&cob<umbral))row.estado='PEDIR URGENTE';
+    else if(cob!==null&&cob<umbral*1.5)row.estado='ATENCIÓN';
+    else if(cob!==null&&cob>umbral*4)row.estado='SOBRE STOCK';
+    else row.estado='STOCK OK';
+  });
+  updateStats();render();renderPedidos();
+  switchTab('stock');
+}
+document.querySelectorAll('.pill').forEach(p=>{
+  p.addEventListener('click',()=>{
+    document.querySelectorAll('.pill').forEach(x=>x.className='pill');
+    state.filter=p.dataset.f;state.openIdx=null;
+    p.classList.add(state.filter==='all'?'p-all':state.filter==='urgente'?'p-urgente':state.filter==='ok'?'p-ok':state.filter==='sobre'?'p-sobre':'p-minimo');
+    render();
+  });
+});
+document.getElementById('search').addEventListener('input',e=>{state.search=e.target.value;state.openIdx=null;render();});
+document.getElementById('sort-sel').addEventListener('change',e=>{state.sort=e.target.value;render();});
+
+function setupFileInput(inputId,btnId,label,onLoad){
+  document.getElementById(inputId).addEventListener('change',function(e){
+    const f=e.target.files[0];if(!f)return;
+    readXlsx(f,(err,data)=>{
+      if(err){debug(`❌ ${err.message}`);return;}
+      debug(`✅ ${label}: ${data.length} filas`);
+      const btn=document.getElementById(btnId);
+      btn.className='upload-btn loaded';
+      btn.firstChild.textContent=`✅ ${label}`;
+      onLoad(data);processFiles();
+    });
+  });
+}
+setupFileInput('inp-mov','btn-mov','Movimientos',d=>{movData=d;});
+setupFileInput('inp-stock','btn-stock','Stock',d=>{stockData=d;});
+
+
+</script>
+</body>
+</html>
